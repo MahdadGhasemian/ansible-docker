@@ -1,0 +1,79 @@
+---
+# tasks file for ansible-docker
+
+- name: Install required system packages
+  apt:
+    name: "{{item}}"
+    state: latest
+    update_cache: yes
+  loop:
+    - apt-transport-https
+    - ca-certificates
+    - curl
+    - software-properties-common
+    - virtualenv
+    - gnupg
+
+- name: Add Docker GPG apt Key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+
+- name: Add Docker Repository
+  apt_repository:
+    repo: deb https://download.docker.com/linux/ubuntu focal stable
+    state: present
+
+- name: Update apt and install docker.
+  apt:
+    name: "{{item}}"
+    state: latest
+    update_cache: yes
+  loop:
+    - docker-ce
+    - docker-ce-cli
+    - containerd.io
+
+- name: Ensure group "docker" exists
+  ansible.builtin.group:
+    name: docker
+    state: present
+
+- name: Add {{ server_user }} user to the 'docker' group
+  user:
+    name: "{{ server_user }}"
+    groups: docker
+    append: yes
+
+- name: Check if Docker Compose is installed
+  command: docker-compose --version
+  register: docker_compose_check
+  ignore_errors: true
+
+- name: Download and install Docker Compose
+  get_url:
+    url: https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-linux-x86_64
+    dest: /usr/bin/docker-compose
+    mode: 0755
+  when:
+    - docker_compose_check.msg is defined
+    - docker_compose_check.msg.find('No such file or directory') != -1
+
+- name: Ensure docker is active.
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Pull default Docker image
+  community.docker.docker_image:
+    name: "{{ default_container_image }}"
+    source: pull
+
+- name: Create default containers
+  community.docker.docker_container:
+    name: "{{ default_container_name }}{{ item }}"
+    image: "{{ default_container_image }}"
+    command: "{{ default_container_command }}"
+    state: present
+  with_sequence: count={{ container_count }}
