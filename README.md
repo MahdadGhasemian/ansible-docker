@@ -9,16 +9,16 @@ None.
 ## Role Variables
 
 # Service options.
-docker_service_manage: true
-docker_service_state: started
-docker_service_enabled: true
-docker_restart_handler_state: restarted
+- docker_service_manage: true
+- docker_service_state: started
+- docker_service_enabled: true
+- docker_restart_handler_state: restarted
 
 # Container
-container_count: 1
-default_container_name: hello
-default_container_image: hello-world
-default_container_command: sleep 1d
+- container_count: 1
+- default_container_name: hello
+- default_container_image: hello-world
+- default_container_command: sleep 1d
 
 ## Dependencies
 
