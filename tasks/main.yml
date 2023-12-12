@@ -33,6 +33,8 @@
     - docker-ce
     - docker-ce-cli
     - containerd.io
+    - docker-buildx-plugin
+    - docker-compose-plugin
 
 - name: Ensure group "docker" exists
   ansible.builtin.group:
@@ -49,15 +51,31 @@
   command: docker-compose --version
   register: docker_compose_check
   ignore_errors: true
+  tags:
+    - "docker_compose"
 
-- name: Download and install Docker Compose
-  get_url:
-    url: https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-linux-x86_64
-    dest: /usr/bin/docker-compose
-    mode: 0755
-  when:
-    - docker_compose_check.msg is defined
-    - docker_compose_check.msg.find('No such file or directory') != -1
+- name: Install Docker Compose if not present
+  when: (docker_version_check.rc != 0) or (docker_compose_force_reinstall | default(false) | bool)
+  block:
+    - name: Get latest Docker Compose release
+      uri:
+        url: "https://api.github.com/repos/docker/compose/releases/latest"
+        return_content: yes
+      register: compose_release
+
+    - name: Download Docker Compose binary
+      get_url:
+        url: "https://github.com/docker/compose/releases/download/{{ compose_release.json.tag_name }}/docker-compose-{{ ansible_system }}-{{ ansible_machine }}"
+        dest: /usr/local/bin/docker-compose
+        mode: "a+x"
+
+    - name: Create symbolic link
+      file:
+        src: /usr/local/bin/docker-compose
+        dest: /usr/bin/docker-compose
+        state: link
+  tags:
+    - "docker_compose"
 
 - name: Ensure docker is active.
   service:
